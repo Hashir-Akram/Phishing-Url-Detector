@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔒 Phishing URL Detector</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #1f77b4;
+            --danger-color: #dc3545;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+
+        .main-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .header h1 {
+            color: var(--primary-color);
+            font-weight: bold;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #6c757d;
+            font-size: 1.1rem;
+        }
+
+        .api-status {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+
+        .api-status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .api-status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .result-card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            transition: transform 0.2s;
+        }
+
+        .result-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+
+        .result-phishing {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: white;
+        }
+
+        .result-safe {
+            background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);
+            color: white;
+        }
+
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .stats-card h3 {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        .stats-card p {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+
+        .btn-analyze {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 12px 30px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-analyze:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .example-btn {
+            margin: 5px;
+            font-size: 0.9rem;
+        }
+
+        .history-table {
+            font-size: 0.9rem;
+        }
+
+        .risk-badge {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .risk-very-high {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .risk-high {
+            background: #ff922b;
+            color: white;
+        }
+
+        .risk-medium {
+            background: #ffd43b;
+            color: #333;
+        }
+
+        .risk-low {
+            background: #69db7c;
+            color: white;
+        }
+
+        .risk-very-low {
+            background: #51cf66;
+            color: white;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .metric-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .metric-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            .main-container {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="main-container">
+            <div class="header">
+                <h1>🔒 Phishing URL Detector</h1>
+                <p>Deep Learning with LSTM + Attention Mechanism</p>
+                <div id="apiStatus" class="api-status disconnected">
+                    <i class="bi bi-circle-fill me-2"></i>
+                    <span>Checking API...</span>
+                </div>
+            </div>
+
+            <!-- Main Input Section -->
+            <div class="row mb-4">
+                <div class="col-lg-8 offset-lg-2">
+                    <h4 class="mb-3"><i class="bi bi-search"></i> Check a URL</h4>
+                    <div class="input-group input-group-lg mb-3">
+                        <input type="text" 
+                               id="urlInput" 
+                               class="form-control" 
+                               placeholder="Enter URL to analyze (e.g., https://example.com)"
+                               onkeypress="handleKeyPress(event)">
+                        <button class="btn btn-analyze btn-primary" 
+                                type="button" 
+                                onclick="analyzeURL()">
+                            <i class="bi bi-shield-check me-2"></i>Analyze
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="loadingSpinner" class="loading-spinner">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-3">Analyzing URL...</p>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" style="display: none;">
+                <div class="row">
+                    <!-- Main Result Card -->
+                    <div class="col-md-6 mb-3">
+                        <div id="resultCard" class="card result-card">
+                            <div class="card-body">
+                                <h3 id="resultTitle"></h3>
+                                <hr>
+                                <p id="resultURL" style="word-break: break-all;"></p>
+                                <div class="row mt-3">
+                                    <div class="col-6">
+                                        <strong>Risk Level:</strong>
+                                        <div id="riskBadge" class="risk-badge mt-2"></div>
+                                    </div>
+                                    <div class="col-6">
+                                        <strong>Confidence:</strong>
+                                        <h4 id="confidenceValue" class="mt-2"></h4>
+                                    </div>
+                                </div>
+                                <p id="resultMessage" class="mt-3 mb-0"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Metrics -->
+                    <div class="col-md-6 mb-3">
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="metric-card">
+                                    <div class="metric-value" id="phishingProb">0%</div>
+                                    <div class="metric-label">Phishing Probability</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="metric-card">
+                                    <div class="metric-value" id="legitProb">0%</div>
+                                    <div class="metric-label">Legitimate Probability</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-body">
+                                <h5>Visual Analysis</h5>
+                                <div class="chart-container">
+                                    <canvas id="probabilityChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Example URLs -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <h5 class="mb-3"><i class="bi bi-card-list"></i> Try Example URLs</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-success">✓ Legitimate Examples:</h6>
+                            <button class="btn btn-outline-success btn-sm example-btn" onclick="setURL('https://www.google.com')">
+                                https://www.google.com
+                            </button>
+                            <button class="btn btn-outline-success btn-sm example-btn" onclick="setURL('https://www.github.com')">
+                                https://www.github.com
+                            </button>
+                            <button class="btn btn-outline-success btn-sm example-btn" onclick="setURL('https://www.amazon.com')">
+                                https://www.amazon.com
+                            </button>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-danger">⚠ Suspicious Examples:</h6>
+                            <button class="btn btn-outline-danger btn-sm example-btn" onclick="setURL('http://paypal-secure.tk/login')">
+                                http://paypal-secure.tk/login
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm example-btn" onclick="setURL('http://amaz0n-verify.com/account')">
+                                http://amaz0n-verify.com/account
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics and History -->
+        <div class="row">
+            <!-- Statistics -->
+            <div class="col-md-4">
+                <div class="main-container">
+                    <h5 class="mb-3"><i class="bi bi-bar-chart"></i> Statistics</h5>
+                    <div class="stats-card">
+                        <h3 id="totalScans">0</h3>
+                        <p>Total Scans</p>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="stats-card" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);">
+                                <h3 id="phishingCount">0</h3>
+                                <p>Phishing</p>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stats-card" style="background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);">
+                                <h3 id="safeCount">0</h3>
+                                <p>Safe</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-outline-danger btn-sm w-100 mt-2" onclick="clearHistory()">
+                        <i class="bi bi-trash"></i> Clear History
+                    </button>
+                </div>
+            </div>
+
+            <!-- History -->
+            <div class="col-md-8">
+                <div class="main-container">
+                    <h5 class="mb-3"><i class="bi bi-clock-history"></i> Scan History</h5>
+                    <div id="historyContainer">
+                        <p class="text-muted text-center">No scans yet. Try analyzing a URL above!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center text-white mt-4">
+            <p>&copy; 2026 Phishing URL Detector | Powered by Deep Learning</p>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        const API_URL = 'http://localhost:5000';
+        let scanHistory = JSON.parse(localStorage.getItem('scanHistory') || '[]');
+        let probabilityChart = null;
+
+        // Check API Health
+        async function checkAPIHealth() {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                
+                const statusElement = document.getElementById('apiStatus');
+                if (data.status === 'healthy' && data.model_loaded) {
+                    statusElement.className = 'api-status connected';
+                    statusElement.innerHTML = '<i class="bi bi-circle-fill me-2"></i><span>✓ API Connected</span>';
+                } else {
+                    statusElement.className = 'api-status disconnected';
+                    statusElement.innerHTML = '<i class="bi bi-circle-fill me-2"></i><span>✗ API Error</span>';
+                }
+            } catch (error) {
+                const statusElement = document.getElementById('apiStatus');
+                statusElement.className = 'api-status disconnected';
+                statusElement.innerHTML = '<i class="bi bi-circle-fill me-2"></i><span>✗ API Disconnected</span>';
+            }
+        }
+
+        // Set URL from example
+        function setURL(url) {
+            document.getElementById('urlInput').value = url;
+            document.getElementById('urlInput').focus();
+        }
+
+        // Handle Enter key press
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                analyzeURL();
+            }
+        }
+
+        // Analyze URL
+        async function analyzeURL() {
+            const urlInput = document.getElementById('urlInput').value.trim();
+            
+            if (!urlInput) {
+                alert('⚠️ Please enter a URL to analyze');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('resultsSection').style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_URL}/predict`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url: urlInput })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayResult(result);
+                    addToHistory(result);
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (error) {
+                alert(`❌ Error: ${error.message}\n\nMake sure the Flask backend is running: python backend/app.py`);
+            } finally {
+                document.getElementById('loadingSpinner').style.display = 'none';
+            }
+        }
+
+        // Display Result
+        function displayResult(result) {
+            const resultCard = document.getElementById('resultCard');
+            const resultTitle = document.getElementById('resultTitle');
+            const resultURL = document.getElementById('resultURL');
+            const riskBadge = document.getElementById('riskBadge');
+            const confidenceValue = document.getElementById('confidenceValue');
+            const resultMessage = document.getElementById('resultMessage');
+            const phishingProb = document.getElementById('phishingProb');
+            const legitProb = document.getElementById('legitProb');
+
+            // Set card class
+            if (result.is_phishing) {
+                resultCard.className = 'card result-card result-phishing';
+                resultTitle.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i>⚠️ PHISHING DETECTED!';
+                resultMessage.textContent = 'This URL appears to be phishing. Do not enter sensitive information!';
+            } else {
+                resultCard.className = 'card result-card result-safe';
+                resultTitle.innerHTML = '<i class="bi bi-shield-check me-2"></i>✅ URL Appears Safe';
+                resultMessage.textContent = 'This URL appears legitimate. However, always exercise caution.';
+            }
+
+            resultURL.innerHTML = `<strong>URL:</strong> ${result.url}`;
+            
+            // Risk badge
+            const riskLevel = result.risk_level.replace(' ', '-').toLowerCase();
+            riskBadge.className = `risk-badge risk-${riskLevel}`;
+            riskBadge.textContent = result.risk_level;
+            
+            // Confidence
+            confidenceValue.textContent = `${(result.confidence * 100).toFixed(1)}%`;
+            
+            // Probabilities
+            phishingProb.textContent = `${(result.phishing_probability * 100).toFixed(1)}%`;
+            phishingProb.style.color = result.is_phishing ? '#dc3545' : '#6c757d';
+            
+            legitProb.textContent = `${(result.legitimate_probability * 100).toFixed(1)}%`;
+            legitProb.style.color = result.is_phishing ? '#6c757d' : '#28a745';
+
+            // Update chart
+            updateChart(result.phishing_probability, result.legitimate_probability);
+
+            // Show results
+            document.getElementById('resultsSection').style.display = 'block';
+            
+            // Scroll to results
+            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Update Chart
+        function updateChart(phishingProb, legitProb) {
+            const ctx = document.getElementById('probabilityChart').getContext('2d');
+            
+            if (probabilityChart) {
+                probabilityChart.destroy();
+            }
+
+            probabilityChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Legitimate', 'Phishing'],
+                    datasets: [{
+                        label: 'Probability (%)',
+                        data: [legitProb * 100, phishingProb * 100],
+                        backgroundColor: [
+                            'rgba(40, 167, 69, 0.8)',
+                            'rgba(220, 53, 69, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(40, 167, 69, 1)',
+                            'rgba(220, 53, 69, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Add to History
+        function addToHistory(result) {
+            const historyItem = {
+                ...result,
+                timestamp: new Date().toLocaleString()
+            };
+            
+            scanHistory.unshift(historyItem);
+            
+            // Keep only last 50 items
+            if (scanHistory.length > 50) {
+                scanHistory = scanHistory.slice(0, 50);
+            }
+            
+            localStorage.setItem('scanHistory', JSON.stringify(scanHistory));
+            updateStatistics();
+            displayHistory();
+        }
+
+        // Update Statistics
+        function updateStatistics() {
+            const total = scanHistory.length;
+            const phishing = scanHistory.filter(h => h.is_phishing).length;
+            const safe = total - phishing;
+
+            document.getElementById('totalScans').textContent = total;
+            document.getElementById('phishingCount').textContent = phishing;
+            document.getElementById('safeCount').textContent = safe;
+        }
+
+        // Display History
+        function displayHistory() {
+            const container = document.getElementById('historyContainer');
+            
+            if (scanHistory.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">No scans yet. Try analyzing a URL above!</p>';
+                return;
+            }
+
+            const recentHistory = scanHistory.slice(0, 10);
+            
+            let html = '<div class="table-responsive"><table class="table table-hover history-table">';
+            html += '<thead><tr><th>Time</th><th>URL</th><th>Result</th><th>Probability</th><th>Risk</th></tr></thead><tbody>';
+            
+            recentHistory.forEach(item => {
+                const urlDisplay = item.url.length > 50 ? item.url.substring(0, 50) + '...' : item.url;
+                const resultClass = item.is_phishing ? 'text-danger' : 'text-success';
+                const resultIcon = item.is_phishing ? '⚠️' : '✅';
+                const riskClass = `risk-${item.risk_level.replace(' ', '-').toLowerCase()}`;
+                
+                html += `<tr>
+                    <td><small>${item.timestamp}</small></td>
+                    <td><small>${urlDisplay}</small></td>
+                    <td class="${resultClass}"><strong>${resultIcon} ${item.prediction}</strong></td>
+                    <td><small>${(item.phishing_probability * 100).toFixed(1)}%</small></td>
+                    <td><span class="risk-badge ${riskClass}">${item.risk_level}</span></td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
+        // Clear History
+        function clearHistory() {
+            if (confirm('Are you sure you want to clear all scan history?')) {
+                scanHistory = [];
+                localStorage.removeItem('scanHistory');
+                updateStatistics();
+                displayHistory();
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAPIHealth();
+            updateStatistics();
+            displayHistory();
+            
+            // Check API health every 30 seconds
+            setInterval(checkAPIHealth, 30000);
+        });
+    </script>
+</body>
+</html>

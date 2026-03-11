@@ -1,7 +1,7 @@
 """
 Flask Backend API for Phishing Detection
 """
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 import numpy as np
 import os
@@ -114,11 +114,33 @@ def predict_url(url):
 
 @app.route('/')
 def home():
+    """Serve the HTML interface"""
+    try:
+        frontend_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend')
+        return send_from_directory(frontend_path, 'index.html')
+    except Exception as e:
+        return jsonify({
+            'message': 'Phishing Detector API',
+            'version': '1.0',
+            'error': str(e),
+            'endpoints': {
+                '/': 'Web interface (HTML)',
+                '/api': 'API information',
+                '/predict': 'POST - Predict if a URL is phishing',
+                '/health': 'GET - Check API health'
+            }
+        })
+
+
+@app.route('/api')
+def api_info():
+    """API information endpoint"""
     return jsonify({
         'message': 'Phishing Detector API',
         'version': '1.0',
         'endpoints': {
-            '/': 'This help message',
+            '/': 'Web interface (HTML)',
+            '/api': 'This API information',
             '/predict': 'POST - Predict if a URL is phishing',
             '/health': 'GET - Check API health'
         }
